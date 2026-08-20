@@ -29,6 +29,7 @@ The language choice is not saved. The selection screen appears each time the scr
 - Verify that the executable or script exists.
 - Reject directories when an executable file is required.
 - Offer to apply `chmod +x` when execute permission is missing.
+- Accept optional execution arguments such as `--no-sandbox` separately from the executable path and automatically append `%u`.
 - Suggest a default application name based on the file name.
 - Configure terminal mode, description, and application category.
 - Create a `.desktop` file in `~/.local/share/applications`.
@@ -66,6 +67,7 @@ Select any `.desktop` file in the user application directory by number and edit 
 
 - Application name
 - Executable path
+- Additional execution options (`%u` remains automatic)
 - Icon
 - Terminal mode
 
@@ -162,6 +164,7 @@ Choose an action:
 
 Select (0-4): 1
 Enter the full path to the executable (cancel: q): /opt/my-tool/run.sh
+Additional execution options (optional; %u is added automatically, e.g. --no-sandbox):
 App name (default: 'Run'): My Tool
 
 Choose an icon selection method:

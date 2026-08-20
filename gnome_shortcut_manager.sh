@@ -229,6 +229,11 @@ define_text \
     "확인된 실행파일: %s"
 
 define_text \
+    "execution_options_prompt" \
+    "Additional execution options (optional; %%u is added automatically, e.g. --no-sandbox): " \
+    "추가 실행 옵션 (선택사항, %%u 자동 추가, 예: --no-sandbox): "
+
+define_text \
     "app_name_prompt" \
     "App name (default: '%s'): " \
     "앱 이름 (기본값: '%s'): "
@@ -386,6 +391,11 @@ define_text \
     "실행 경로 변경  (현재: %s)"
 
 define_text \
+    "edit_exec_options" \
+    "Change execution options (current: %s)" \
+    "실행 옵션 변경  (현재: %s)"
+
+define_text \
     "edit_icon" \
     "Change icon           (current: %s)" \
     "아이콘 변경     (현재: %s)"
@@ -407,8 +417,8 @@ define_text \
 
 define_text \
     "edit_item_prompt" \
-    "Choose an item to edit (0-5): " \
-    "수정할 항목 선택 (0-5): "
+    "Choose an item to edit (0-6): " \
+    "수정할 항목 선택 (0-6): "
 
 define_text \
     "new_name_prompt" \
@@ -429,6 +439,21 @@ define_text \
     "executable_changed" \
     "Executable path changed." \
     "실행 경로가 변경되었습니다."
+
+define_text \
+    "new_exec_options_prompt" \
+    "Enter additional execution options (current: %s; Enter to clear; %%u is automatic): " \
+    "추가 실행 옵션을 입력하세요 (현재: %s, Enter 시 제거, %%u 자동 추가): "
+
+define_text \
+    "exec_options_changed" \
+    "Execution options changed." \
+    "실행 옵션이 변경되었습니다."
+
+define_text \
+    "no_options" \
+    "none" \
+    "없음"
 
 define_text \
     "invalid_executable" \
@@ -1039,6 +1064,69 @@ pause_prompt() {
     read -rp "$(t pause_prompt)" key >&2
 }
 
+# Return only the executable portion of an Exec value. Shortcuts created by
+# this manager quote the executable path, including paths that contain spaces.
+extract_executable_path() {
+    local exec_value="$1"
+    if [[ "$exec_value" == \"* ]]; then
+        exec_value="${exec_value#\"}"
+        printf '%s\n' "${exec_value%%\"*}"
+    else
+        printf '%s\n' "${exec_value%% *}"
+    fi
+}
+
+# Return the arguments after the executable and hide the automatically managed
+# trailing %u field code from the options editor.
+extract_execution_options() {
+    local exec_value="$1"
+    if [[ "$exec_value" == \"* ]]; then
+        exec_value="${exec_value#\"}"
+        if [[ "$exec_value" == *\"* ]]; then
+            exec_value="${exec_value#*\"}"
+        else
+            exec_value=""
+        fi
+    elif [[ "$exec_value" == *" "* ]]; then
+        exec_value="${exec_value#* }"
+    else
+        exec_value=""
+    fi
+
+    exec_value="${exec_value#${exec_value%%[![:space:]]*}}"
+    exec_value="${exec_value%${exec_value##*[![:space:]]}}"
+    if [ "$exec_value" = "%u" ]; then
+        exec_value=""
+    elif [[ "$exec_value" == *" %u" ]]; then
+        exec_value="${exec_value% %u}"
+    fi
+
+    printf '%s\n' "$exec_value"
+}
+
+# Retain GNOME's single-URI field code by default. Do not add %u when another
+# file/URI field code was supplied explicitly.
+ensure_exec_field_code() {
+    local exec_value="$1"
+    if ! [[ " $exec_value " =~ [[:space:]]%[fFuU][[:space:]] ]]; then
+        exec_value+=" %u"
+    fi
+
+    printf '%s\n' "$exec_value"
+}
+
+build_exec_command() {
+    local exec_path="$1"
+    local exec_options="$2"
+    local exec_value="\"$exec_path\""
+
+    if [ -n "$exec_options" ]; then
+        exec_value+=" $exec_options"
+    fi
+
+    ensure_exec_field_code "$exec_value"
+}
+
 # ------------------------------------------------------------------------------
 # Shortcut trust settings and desktop cache refresh
 # ------------------------------------------------------------------------------
@@ -1231,6 +1319,13 @@ register_app() {
     exec_path="$(realpath "$exec_path")"
     print_success "$(t confirmed_executable "$exec_path")"
 
+    # Read optional command-line arguments separately from the executable path.
+    # %u is appended later unless another file/URI field code is supplied.
+    local exec_options=""
+    read -rp "$(t execution_options_prompt)" exec_options
+    local exec_command
+    exec_command="$(build_exec_command "$exec_path" "$exec_options")"
+
     # Suggest a default app name based on the file name.
     local default_name
     default_name="$(basename "$exec_path")"
@@ -1297,7 +1392,7 @@ Version=1.0
 Type=Application
 Name=$app_name
 Comment=$comment_input
-Exec="$exec_path" %u
+Exec=$exec_command
 Icon=$icon_path
 Terminal=$terminal_val
 Categories=$category_val
@@ -1398,6 +1493,8 @@ edit_app() {
     # Parse the existing desktop entry.
     local current_name
     local current_exec
+    local current_exec_path
+    local current_exec_options
     local current_icon
     local current_term
 
@@ -1407,15 +1504,24 @@ edit_app() {
     current_term="$(grep -m 1 "^Terminal=" "$target_file" | cut -d'=' -f2-)"
     current_term="${current_term:-false}"
 
+    # Normalize older manager-created shortcuts when they are edited. The
+    # corrected value is written only when the user chooses Save changes.
+    if grep -q "^X-Created-By=shortcut-manager" "$target_file" 2>/dev/null; then
+        current_exec="$(ensure_exec_field_code "$current_exec")"
+    fi
+    current_exec_path="$(extract_executable_path "$current_exec")"
+    current_exec_options="$(extract_execution_options "$current_exec")"
+
     while true; do
         print_header
         echo -e "${BOLD}[$(t editing_app "$current_name")]${NC}"
         echo -e " $(t file_path "$target_file")\n"
         echo "  1) $(t edit_name "$current_name")"
-        echo "  2) $(t edit_executable "$current_exec")"
-        echo "  3) $(t edit_icon "$current_icon")"
-        echo "  4) $(t edit_terminal "$current_term")"
-        echo "  5) $(t save_changes)"
+        echo "  2) $(t edit_executable "$current_exec_path")"
+        echo "  3) $(t edit_exec_options "${current_exec_options:-$(t no_options)}")"
+        echo "  4) $(t edit_icon "$current_icon")"
+        echo "  5) $(t edit_terminal "$current_term")"
+        echo "  6) $(t save_changes)"
         echo "  0) $(t cancel_edit)"
         echo ""
         read -rp "$(t edit_item_prompt)" edit_choice
@@ -1434,7 +1540,8 @@ edit_app() {
                 raw_einput="${raw_einput//\'/}"
                 raw_einput="${raw_einput//\"/}"
                 if [ -e "$raw_einput" ] && [ ! -d "$raw_einput" ]; then
-                    current_exec="$(realpath "$raw_einput") %u"
+                    current_exec_path="$(realpath "$raw_einput")"
+                    current_exec="$(build_exec_command "$current_exec_path" "$current_exec_options")"
                     print_success "$(t executable_changed)"
                 else
                     print_error "$(t invalid_executable)"
@@ -1442,17 +1549,21 @@ edit_app() {
                 sleep 1
                 ;;
             3)
-                local clean_exec
-                clean_exec="$(echo "$current_exec" | sed 's/ %u//g' | tr -d '"')"
+                read -rp "$(t new_exec_options_prompt "${current_exec_options:-$(t no_options)}")" current_exec_options
+                current_exec="$(build_exec_command "$current_exec_path" "$current_exec_options")"
+                print_success "$(t exec_options_changed)"
+                sleep 1
+                ;;
+            4)
                 local new_icon
-                new_icon="$(select_icon "$clean_exec")"
+                new_icon="$(select_icon "$current_exec_path")"
                 if [ -n "$new_icon" ]; then
                     current_icon="$new_icon"
                     print_success "$(t icon_changed)"
                 fi
                 sleep 1
                 ;;
-            4)
+            5)
                 if [ "$current_term" = "true" ]; then
                     current_term="false"
                 else
@@ -1461,7 +1572,7 @@ edit_app() {
                 print_success "$(t terminal_changed "$current_term")"
                 sleep 1
                 ;;
-            5)
+            6)
                 # Update the desktop entry.
                 sed -i "s|^Name=.*|Name=$current_name|" "$target_file"
                 sed -i "s|^Exec=.*|Exec=$current_exec|" "$target_file"
