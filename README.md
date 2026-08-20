@@ -37,6 +37,18 @@ The language choice is not saved. The selection screen appears each time the scr
 
 Supported categories are `Utility`, `Development`, `Game`, `Network`, `AudioVideo`, `Office`, and `System`.
 
+Execution options are entered separately from the executable path. Enter only additional arguments such as `--no-sandbox`; the manager appends `%u` automatically:
+
+```text
+Executable: /opt/bruno/bruno.AppImage
+Additional execution options: --no-sandbox
+Generated Exec value: "/opt/bruno/bruno.AppImage" --no-sandbox %u
+```
+
+If the options already contain `%f`, `%F`, `%u`, or `%U`, the manager preserves that field code without adding another `%u`. These field codes pass one file, multiple files, one URL/URI, or multiple URLs/URIs, respectively.
+
+Terminal mode controls whether GNOME opens a terminal for the command. Use `Terminal=true` for CLI tools and interactive scripts; GUI applications such as AppImages normally use `Terminal=false`.
+
 ### Icon selection
 
 Icons can be selected through the following workflow:
@@ -72,6 +84,8 @@ Select any `.desktop` file in the user application directory by number and edit 
 - Terminal mode
 
 If a shortcut with the same file name exists on the desktop, the saved changes are synchronized to that copy.
+
+Changing only the executable path preserves its current additional options. The execution-options item can replace or clear those arguments independently; pressing Enter clears the additional arguments while the automatically managed `%u` remains. Older manager-created shortcuts that do not contain a file/URI field code are normalized with `%u` when opened for editing and then saved.
 
 ### Listing and deletion
 
@@ -235,15 +249,21 @@ Choose an app to edit (1-1, cancel: 0): 1
 
   1) Change app name
   2) Change executable path
-  3) Change icon
-  4) Toggle terminal mode
-  5) Save changes
+  3) Change execution options (current: none)
+  4) Change icon
+  5) Toggle terminal mode
+  6) Save changes
   0) Cancel editing
 
-Choose an item to edit (0-5): 3
+Choose an item to edit (0-6): 3
+Enter additional execution options (current: none; Enter to clear; %u is automatic): --no-sandbox
 ```
 
-After changing the desired properties, choose option `5` to save them.
+After changing the desired properties, choose option `6` to save them. In this example, the saved command becomes:
+
+```ini
+Exec="/opt/my-tool/run.sh" --no-sandbox %u
+```
 
 ### Example 5: List and delete shortcuts
 
