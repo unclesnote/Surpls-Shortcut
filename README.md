@@ -1,307 +1,181 @@
-# GNOME Shortcut Manager
+# SurplsShortcut
 
-**English** | [한국어](README_ko.md)
+SurplsShortcut is a Python/Tkinter desktop application for creating and managing per-user GNOME `.desktop` shortcuts. It provides a graphical interface for application-menu entries and optional Desktop copies without requiring users to edit launcher files manually.
 
-`gnome_shortcut_manager.sh` is an interactive Bash utility that registers executable files and user scripts as `.desktop` shortcuts in the GNOME application menu and on the desktop.
-
-It provides English and Korean interfaces and handles executable validation, icon discovery, execute permissions, GNOME trust metadata, and application database refreshes.
+The original interactive Bash implementation and its documentation are preserved in [`archive/`](archive/).
 
 ## Features
 
-### English and Korean interface
-
-- Choose `English` or `한국어` when the script starts.
-- Press Enter without entering a choice to use English, the default language.
-- Apply the selected language to menus, prompts, warnings, errors, and icon descriptions for the current session.
-- Manage interface strings by text ID in English and Korean.
-
-```bash
-define_text \
-    "app_title" \
-    "GNOME Shortcut Manager" \
-    "그놈 단축 아이콘 관리자"
-```
-
-The language choice is not saved. The selection screen appears each time the script starts.
-
-### Shortcut registration
-
-- Verify that the executable or script exists.
-- Reject directories when an executable file is required.
-- Offer to apply `chmod +x` when execute permission is missing.
-- Accept optional execution arguments such as `--no-sandbox` separately from the executable path and automatically append `%u`.
-- Suggest a default application name based on the file name.
-- Configure terminal mode, description, and application category.
-- Create a `.desktop` file in `~/.local/share/applications`.
-- Optionally create the same shortcut on the GNOME desktop.
-
-Supported categories are `Utility`, `Development`, `Game`, `Network`, `AudioVideo`, `Office`, and `System`.
-
-Execution options are entered separately from the executable path. Enter only additional arguments such as `--no-sandbox`; the manager appends `%u` automatically:
-
-```text
-Executable: /opt/bruno/bruno.AppImage
-Additional execution options: --no-sandbox
-Generated Exec value: "/opt/bruno/bruno.AppImage" --no-sandbox %u
-```
-
-If the options already contain `%f`, `%F`, `%u`, or `%U`, the manager preserves that field code without adding another `%u`. These field codes pass one file, multiple files, one URL/URI, or multiple URLs/URIs, respectively.
-
-Terminal mode controls whether GNOME opens a terminal for the command. Use `Terminal=true` for CLI tools and interactive scripts; GUI applications such as AppImages normally use `Terminal=false`.
-
-### Icon selection
-
-Icons can be selected through the following workflow:
-
-1. Search for image files up to three directory levels below the executable's directory.
-2. Select one of the detected images.
-3. Select one of 82 predefined system icons.
-4. Enter the full path to a custom icon file.
-
-The automatic search recognizes these file extensions:
-
-```text
-.png  .svg  .ico  .xpm  .jpg  .jpeg
-```
-
-The system icon list uses names commonly provided by Freedesktop-compatible Ubuntu and GNOME icon themes. The rendered appearance can vary with the installed theme.
-
-- General: executables, terminals, settings, games, internet, office, and development
-- Tools and documents: calculator, editor, archives, system monitor, logs, and PDF
-- Internet and communications: server, Wi-Fi, Ethernet, VPN, email, chat, and Bluetooth
-- Files and storage: disks, USB drives, remote folders, downloads, pictures, and videos
-- Multimedia: graphics, cameras, music, headphones, speakers, and microphones
-- System and security: locks, authentication, users, input devices, printers, and batteries
-
-### Shortcut editing
-
-Select any `.desktop` file in the user application directory by number and edit the following properties:
-
-- Application name
-- Executable path
-- Additional execution options (`%u` remains automatic)
-- Icon
-- Terminal mode
-
-If a shortcut with the same file name exists on the desktop, the saved changes are synchronized to that copy.
-
-Changing only the executable path preserves its current additional options. The execution-options item can replace or clear those arguments independently; pressing Enter clears the additional arguments while the automatically managed `%u` remains. Older manager-created shortcuts that do not contain a file/URI field code are normalized with `%u` when opened for editing and then saved.
-
-### Listing and deletion
-
-- Display the application name, executable command, and icon.
-- Mark entries created by this utility with `[manager-created]`.
-- Show the application name and file name before requesting deletion confirmation.
-- Remove the matching files from both the application menu and desktop after confirmation.
-
-> Caution: the list can contain every user `.desktop` file in `~/.local/share/applications`, not only files created by this utility. Verify the application name and path before deleting an entry.
-
-### GNOME integration
-
-After a shortcut is created or changed, the script performs the following operations when their supporting commands are available:
-
-- Add execute permission to the `.desktop` file.
-- Apply `gio trust` and `metadata::trusted` attributes.
-- Run `update-desktop-database`.
-- Refresh the user GTK icon cache.
-- Trigger directory update events for GNOME Shell and DING.
-
-If an optional command is unavailable, only that integration step is skipped. The basic shortcut operation continues.
+- Searchable list of shortcuts from `~/.local/share/applications`
+- Shared form for registering and editing applications
+- Separate executable path and command-line options
+- Automatic `%u` field-code handling
+- Dedicated `--no-sandbox` checkbox with a security warning
+- Read-only Electron/Chromium sandbox environment diagnosis
+- `Terminal=true` support for launching CLI applications in a terminal
+- Nearby image discovery up to three directory levels deep
+- Selection from 82 common GNOME system icons
+- Custom PNG, SVG, ICO, XPM, JPG, and JPEG icon paths
+- Desktop shortcut creation, synchronization, and removal
+- Automatic execute permission and GIO `metadata::trusted=true` handling
+- Safe deletion of launcher files without deleting the actual application
+- Preservation of unsupported fields and action sections in external `.desktop` files
+- Detection of files modified externally while an edit dialog is open
+- English and Korean user interfaces
 
 ## Requirements
 
-- A GNOME desktop environment
-- Bash 4 or later for associative array support
-- Standard GNU/Linux commands: `find`, `sed`, `awk`, `grep`, `cut`, and `realpath`
-- Optional integration commands: `xdg-user-dir`, `gio`, `update-desktop-database`, and `gtk-update-icon-cache`
+- Linux with GNOME or a compatible desktop environment
+- Python 3.10 or later
+- Tkinter
+- `xdg-user-dir` for resolving the configured Desktop directory
+- `gio` for GNOME Allow Launching trust metadata
+- `update-desktop-database` for refreshing the application database
 
-## Installation and startup
-
-Move to the directory containing the script, grant execute permission, and run it:
-
-```bash
-cd /path/to/shortcut
-chmod +x gnome_shortcut_manager.sh
-./gnome_shortcut_manager.sh
-```
-
-You can also run the script through Bash without changing its permissions:
+On Ubuntu or Debian, install the runtime packages with:
 
 ```bash
-bash gnome_shortcut_manager.sh
+sudo apt update
+sudo apt install python3 python3-pip python3-venv python3-tk xdg-user-dirs libglib2.0-bin desktop-file-utils
 ```
 
-## Usage examples
+There are currently no third-party pip dependencies. `env.sh` monitors
+`requirement.txt`; when dependencies are added, it creates `.venv` and installs
+the file again only after its contents change.
 
-All examples below use the English interface. Press Enter at the language prompt to select English by default.
-
-### Example 1: Start the manager in English
-
-```text
-$ ./gnome_shortcut_manager.sh
-======================================================
-          Select Language / 언어 선택
-======================================================
-
-  1) English
-  2) 한국어 (Korean)
-
-Select (1-2, default: 1):
-
-======================================================
-                GNOME Shortcut Manager
-======================================================
-
-Choose an action:
-
-  1) Register a new executable shortcut
-  2) Edit a registered app shortcut
-  3) Delete a registered app shortcut
-  4) View all registered apps
-  0) Exit
+```bash
+source ./env.sh
 ```
 
-### Example 2: Register an executable
+## Running the application
 
-The following example registers `/opt/my-tool/run.sh` as a utility that runs in a terminal. The system icon number should be selected from the list displayed on your system.
+From the project directory:
 
-```text
-$ ./gnome_shortcut_manager.sh
-Select (1-2, default: 1):
-
-Choose an action:
-  1) Register a new executable shortcut
-  2) Edit a registered app shortcut
-  3) Delete a registered app shortcut
-  4) View all registered apps
-  0) Exit
-
-Select (0-4): 1
-Enter the full path to the executable (cancel: q): /opt/my-tool/run.sh
-Additional execution options (optional; %u is added automatically, e.g. --no-sandbox):
-App name (default: 'Run'): My Tool
-
-Choose an icon selection method:
-  1) Choose from 82 recommended system icons
-  2) Enter a custom icon file path
-Select (1-2, default: 1): 1
-Choose a system icon (1-82): 2
-✔ Selected system icon: utilities-terminal
-
-Does this app need to run in a terminal? (y/N): y
-App description/comment (optional; Enter for default): My terminal tool
-Choose a category (1-7, default: 1): 1
-Also create the shortcut on the Desktop? (Y/n): y
-
-✔ 'My Tool' was registered successfully!
+```bash
+source ./env.sh
+python3 app.py
 ```
 
-Registration normally creates these files:
+`env.sh` configures the project module path and the local Tkinter fallback used
+by the VS Code debugger. It can also run Python directly:
 
-```text
-~/.local/share/applications/my-tool.desktop
-~/Desktop/my-tool.desktop
+```bash
+./env.sh app.py
 ```
 
-The generated `.desktop` file has the following structure:
+VS Code uses the same script automatically when launching `app.py` with F5.
+
+The application follows the role-based layout documented in `Design.md`: core
+modules live at the project root, with services, UI components, and resources in
+separate packages.
+
+If Tkinter is missing, the launcher exits with an installation hint instead of a Python traceback.
+
+## Basic workflow
+
+### Register a shortcut
+
+1. Select **New shortcut**.
+2. Choose an executable file.
+3. Enter the application name and optional description.
+4. Select an icon and category.
+5. Enable **Run in a terminal** only for terminal-based applications or scripts.
+6. Enable **Create a Desktop shortcut** when a Desktop copy is wanted.
+7. Save the entry.
+
+The application writes the launcher to the user application directory and, when selected, copies it to the configured Desktop directory.
+
+### Edit a shortcut
+
+Double-click an item or select it and choose **Edit**. Saving updates the application-menu entry. If the Desktop checkbox remains enabled, the latest file is copied to the Desktop and trusted again. Disabling it removes only the Desktop copy.
+
+### Delete a shortcut
+
+Select an item and choose **Delete**. The confirmation dialog lists both launcher files that may be removed and warns when the file was not originally created by this manager. The executable and icon source files are never deleted.
+
+## Terminal execution
+
+Enabling **Run in a terminal** writes:
 
 ```ini
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=My Tool
-Comment=My terminal tool
-Exec="/opt/my-tool/run.sh" %u
-Icon=utilities-terminal
 Terminal=true
-Categories=Utility;
-StartupNotify=true
-X-Created-By=shortcut-manager
 ```
 
-### Example 3: Use a custom icon file
+GNOME then opens a terminal and runs the configured `Exec` command inside it. GUI applications normally do not need this option. Terminal-based tools, interactive scripts, or applications whose console output must remain visible generally do.
 
-Choose option `2` in the icon selection menu and enter an absolute image path:
+## `--no-sandbox` diagnosis
 
-```text
-Choose an icon selection method:
-  1) Choose from 82 recommended system icons
-  2) Enter a custom icon file path
-Select (1-2, default: 1): 2
-Enter the full path to an icon image: /opt/my-tool/assets/icon.png
-```
+The option is disabled by default because it turns off Chromium/Electron process isolation. SurplsShortcut can perform a read-only diagnosis without running the selected application. It checks indicators such as:
 
-If the file exists, its absolute path is stored in the `.desktop` file's `Icon` field.
+- Existing shortcuts for the same executable
+- Electron/Chromium files near the executable
+- `chrome-sandbox` ownership, execute permission, and setuid mode
+- Kernel unprivileged-user-namespace settings
+- Ubuntu AppArmor user-namespace restrictions and possible profiles
 
-### Example 4: Edit a registered shortcut
+Static inspection cannot prove that an application will fail at runtime. The diagnosis therefore reports a likelihood and never enables `--no-sandbox` solely from system heuristics. An existing shortcut that already contains the option is represented as checked when edited.
 
-Choose option `2` from the main menu, then select the application and property to edit:
+## Managed paths
 
-```text
-Select (0-4): 2
-
---- Registered Apps (~/.local/share/applications) ---
-   1) My Tool                   [manager-created]
-      ├─ Executable: "/opt/my-tool/run.sh" %u
-      └─ Icon: utilities-terminal
-
-Choose an app to edit (1-1, cancel: 0): 1
-
-  1) Change app name
-  2) Change executable path
-  3) Change execution options (current: none)
-  4) Change icon
-  5) Toggle terminal mode
-  6) Save changes
-  0) Cancel editing
-
-Choose an item to edit (0-6): 3
-Enter additional execution options (current: none; Enter to clear; %u is automatic): --no-sandbox
-```
-
-After changing the desired properties, choose option `6` to save them. In this example, the saved command becomes:
-
-```ini
-Exec="/opt/my-tool/run.sh" --no-sandbox %u
-```
-
-### Example 5: List and delete shortcuts
-
-Choose option `4` from the main menu to inspect registered shortcuts:
-
-```text
-Select (0-4): 4
-
---- Registered Apps (~/.local/share/applications) ---
-   1) My Tool                   [manager-created]
-      ├─ Executable: "/opt/my-tool/run.sh" %u
-      └─ Icon: utilities-terminal
-```
-
-To delete a shortcut, choose option `3` and confirm with `y`:
-
-```text
-Select (0-4): 3
-Choose an app to delete (1-1, cancel: 0): 1
-⚠ Delete the 'My Tool' (my-tool.desktop) shortcut?
-Confirm (y/N): y
-✔ 'My Tool' deleted!
-```
-
-## Generated paths
-
-| Purpose | Default path |
+| Purpose | Path |
 |---|---|
-| GNOME application menu | `~/.local/share/applications/*.desktop` |
-| Desktop | The result of `xdg-user-dir DESKTOP`, or `~/Desktop` |
-| User icon cache | `~/.local/share/icons` |
+| Application-menu entries | `$XDG_DATA_HOME/applications` or `~/.local/share/applications` |
+| Desktop copies | `xdg-user-dir DESKTOP` or `~/Desktop` |
+| Application settings | `$XDG_CONFIG_HOME/surpls-shortcut/config.json` or `~/.config/surpls-shortcut/config.json` |
 
-Application names are converted to lowercase file IDs. A name without ASCII letters or digits can produce a file named `app-<random-number>.desktop`.
+Only per-user launchers are managed. System launchers under `/usr/share/applications` are not modified.
 
-## Notes
+## Project structure
 
-- Executable paths and custom icon paths must refer to existing files.
-- Searching for nearby icons can take time when the executable is stored in a large directory tree.
-- GNOME can display a fallback icon when the active theme does not provide a selected system icon name.
-- Desktop icon visibility depends on the GNOME extension or DING configuration.
-- The script manages the current user's application directory, not the system-wide application directory.
+```text
+SurplsShortcut/
+├── app.py                              # GUI entry point
+├── env.sh                              # Shell and VS Code Python environment
+├── models.py                           # DesktopEntry data model
+├── config.py                           # Paths, settings, and categories
+├── i18n.py                             # English and Korean strings
+├── services/
+│   ├── desktop_entry_service.py        # Parsing, Exec handling, saving, deletion
+│   ├── icon_service.py                 # Nearby and system icon discovery
+│   ├── gnome_service.py                # Permissions, trust, and cache refresh
+│   └── sandbox_service.py              # Read-only sandbox diagnosis
+├── ui/
+│   ├── main_window.py                  # List, search, and details
+│   ├── app_editor.py                   # Shared create/edit dialog
+│   ├── icon_picker.py                  # Icon selection dialog
+│   └── delete_dialog.py                # Delete-scope confirmation
+├── resources/
+│   └── system_icons.py                 # System icon names
+├── tests/
+│   ├── test_desktop_entry.py
+│   ├── test_exec_builder.py
+│   ├── test_desktop_sync.py
+│   └── test_sandbox.py
+├── archive/                            # Legacy Bash implementation and docs
+├── Design.md                           # GUI and workflow design
+└── requirement.txt                     # Python dependency declaration
+```
+
+## Tests
+
+Run the complete test suite with:
+
+```bash
+python3 -m unittest discover -v
+```
+
+The tests cover `Exec` parsing and construction, `--no-sandbox` separation, unknown desktop-entry field preservation, external-change conflicts, Desktop copy synchronization and removal, exact GNOME trust metadata, deletion safety, and static sandbox diagnosis.
+
+## Legacy Bash version
+
+The previous terminal-based implementation remains available at:
+
+```text
+archive/gnome_shortcut_manager.sh
+```
+
+Its original English and Korean documentation is stored beside it. New development should target the role-based Python modules listed above.
+
+## Design
+
+See [`Design.md`](Design.md) for the detailed screen layout, interaction flows, data model, safety policy, and implementation decisions.

@@ -406,6 +406,11 @@ define_text \
     "터미널 실행여부 (현재: %s)"
 
 define_text \
+    "edit_desktop" \
+    "Toggle Desktop shortcut (current: %s)" \
+    "바탕화면 바로가기 (현재: %s)"
+
+define_text \
     "save_changes" \
     "Save changes" \
     "수정 완료 및 저장"
@@ -417,8 +422,8 @@ define_text \
 
 define_text \
     "edit_item_prompt" \
-    "Choose an item to edit (0-6): " \
-    "수정할 항목 선택 (0-6): "
+    "Choose an item to edit (0-7): " \
+    "수정할 항목 선택 (0-7): "
 
 define_text \
     "new_name_prompt" \
@@ -469,6 +474,11 @@ define_text \
     "terminal_changed" \
     "Terminal mode changed to '%s'." \
     "터미널 실행 여부가 '%s'(으)로 변경되었습니다."
+
+define_text \
+    "desktop_changed" \
+    "Desktop shortcut changed to '%s'." \
+    "바탕화면 바로가기 여부가 '%s'(으)로 변경되었습니다."
 
 define_text \
     "changes_saved" \
@@ -1133,12 +1143,12 @@ build_exec_command() {
 apply_file_trust() {
     local target_file="$1"
     [ -z "$target_file" ] || [ ! -f "$target_file" ] && return 0
-    
-    chmod +x "$target_file" 2>/dev/null
+
+    # DING considers a desktop entry launchable only when the current user can
+    # execute it and metadata::trusted is the exact string "true".
+    chmod u+x "$target_file" 2>/dev/null
     if command -v gio &>/dev/null; then
-        gio trust "$target_file" &>/dev/null
-        gio set "$target_file" metadata::trusted true &>/dev/null
-        gio set "$target_file" metadata::trusted yes &>/dev/null
+        gio set --type=string "$target_file" metadata::trusted true &>/dev/null
     fi
     touch "$target_file" 2>/dev/null
 }
@@ -1497,12 +1507,17 @@ edit_app() {
     local current_exec_options
     local current_icon
     local current_term
+    local current_desktop
+    local base_filename
 
     current_name="$(grep -m 1 "^Name=" "$target_file" | cut -d'=' -f2-)"
     current_exec="$(grep -m 1 "^Exec=" "$target_file" | cut -d'=' -f2-)"
     current_icon="$(grep -m 1 "^Icon=" "$target_file" | cut -d'=' -f2-)"
     current_term="$(grep -m 1 "^Terminal=" "$target_file" | cut -d'=' -f2-)"
     current_term="${current_term:-false}"
+    base_filename="$(basename "$target_file")"
+    current_desktop="false"
+    [ -f "$DESKTOP_DIR/$base_filename" ] && current_desktop="true"
 
     # Normalize older manager-created shortcuts when they are edited. The
     # corrected value is written only when the user chooses Save changes.
@@ -1521,7 +1536,8 @@ edit_app() {
         echo "  3) $(t edit_exec_options "${current_exec_options:-$(t no_options)}")"
         echo "  4) $(t edit_icon "$current_icon")"
         echo "  5) $(t edit_terminal "$current_term")"
-        echo "  6) $(t save_changes)"
+        echo "  6) $(t edit_desktop "$current_desktop")"
+        echo "  7) $(t save_changes)"
         echo "  0) $(t cancel_edit)"
         echo ""
         read -rp "$(t edit_item_prompt)" edit_choice
@@ -1573,6 +1589,15 @@ edit_app() {
                 sleep 1
                 ;;
             6)
+                if [ "$current_desktop" = "true" ]; then
+                    current_desktop="false"
+                else
+                    current_desktop="true"
+                fi
+                print_success "$(t desktop_changed "$current_desktop")"
+                sleep 1
+                ;;
+            7)
                 # Update the desktop entry.
                 sed -i "s|^Name=.*|Name=$current_name|" "$target_file"
                 sed -i "s|^Exec=.*|Exec=$current_exec|" "$target_file"
@@ -1581,12 +1606,13 @@ edit_app() {
 
                 apply_file_trust "$target_file"
 
-                # Synchronize an existing desktop copy.
-                local base_filename
-                base_filename="$(basename "$target_file")"
-                if [ -f "$DESKTOP_DIR/$base_filename" ]; then
+                # Apply the selected Desktop shortcut state.
+                if [ "$current_desktop" = "true" ]; then
+                    mkdir -p "$DESKTOP_DIR"
                     cp "$target_file" "$DESKTOP_DIR/$base_filename"
                     apply_file_trust "$DESKTOP_DIR/$base_filename"
+                else
+                    rm -f "$DESKTOP_DIR/$base_filename"
                 fi
 
                 # Refresh desktop caches and events.
