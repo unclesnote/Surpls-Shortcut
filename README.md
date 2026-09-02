@@ -14,14 +14,61 @@ The original interactive Bash implementation and its documentation are preserved
 - Read-only Electron/Chromium sandbox environment diagnosis
 - `Terminal=true` support for launching CLI applications in a terminal
 - Nearby image discovery up to three directory levels deep
-- Selection from 82 common GNOME system icons
+- Thumbnail selection from 82 common GNOME system icons
 - Custom PNG, SVG, ICO, XPM, JPG, and JPEG icon paths
+- Icon previews in the main list, details panel, editor, and icon picker
+- Localized, descriptive status labels instead of raw Boolean values
 - Desktop shortcut creation, synchronization, and removal
 - Automatic execute permission and GIO `metadata::trusted=true` handling
 - Safe deletion of launcher files without deleting the actual application
 - Preservation of unsupported fields and action sections in external `.desktop` files
 - Detection of files modified externally while an edit dialog is open
 - English and Korean user interfaces
+
+## Screenshots
+
+### Main window
+
+The main window combines icon previews, localized shortcut status, search,
+management actions, and a larger preview for the selected shortcut.
+
+![Main window showing shortcuts and the selected-item preview](docs/screenshots/main-window.png)
+
+### Application editor
+
+The same editor is used for registration and modification. The final `Exec`
+value and selected icon are previewed before saving.
+
+![Application editor with execution and display settings](docs/screenshots/app-editor.png)
+
+### Icon picker
+
+Nearby files are discovered asynchronously and displayed as preview tiles.
+
+![Nearby icon files displayed as thumbnail tiles](docs/screenshots/icon-picker-nearby.png)
+
+Freedesktop icon names are resolved against the installed icon themes whenever
+a preview is available.
+
+![System icon theme displayed as a searchable thumbnail grid](docs/screenshots/icon-picker-system.png)
+
+An absolute image path can also be selected from the custom-file tab.
+
+![Custom icon file selection with a preview](docs/screenshots/icon-picker-custom.png)
+
+### Delete confirmation
+
+The confirmation identifies every shortcut file in scope and makes clear that
+the executable itself is not deleted.
+
+![Delete confirmation showing the affected shortcut paths](docs/screenshots/delete-dialog.png)
+
+### Sandbox diagnosis
+
+The read-only diagnosis summarizes relevant Electron, kernel, and AppArmor
+indicators without launching or modifying the selected application.
+
+![Read-only sandbox diagnosis result](docs/screenshots/sandbox-diagnosis.png)
 
 ## Requirements
 
@@ -56,8 +103,9 @@ source ./env.sh
 python3 app.py
 ```
 
-`env.sh` configures the project module path and the local Tkinter fallback used
-by the VS Code debugger. It can also run Python directly:
+`env.sh` configures the project module path, activates an existing `.venv`,
+installs changed `requirement.txt` dependencies, and uses either system Tkinter
+or an available local fallback. It can also run Python directly:
 
 ```bash
 ./env.sh app.py
@@ -129,6 +177,8 @@ Only per-user launchers are managed. System launchers under `/usr/share/applicat
 
 ```text
 SurplsShortcut/
+├── .vscode/
+│   └── launch.json                     # F5 debugger configuration
 ├── app.py                              # GUI entry point
 ├── env.sh                              # Shell and VS Code Python environment
 ├── models.py                           # DesktopEntry data model
@@ -146,6 +196,8 @@ SurplsShortcut/
 │   └── delete_dialog.py                # Delete-scope confirmation
 ├── resources/
 │   └── system_icons.py                 # System icon names
+├── docs/
+│   └── screenshots/                    # Current application screenshots
 ├── tests/
 │   ├── test_desktop_entry.py
 │   ├── test_exec_builder.py
@@ -161,7 +213,7 @@ SurplsShortcut/
 Run the complete test suite with:
 
 ```bash
-python3 -m unittest discover -v
+./env.sh -m unittest discover -v
 ```
 
 The tests cover `Exec` parsing and construction, `--no-sandbox` separation, unknown desktop-entry field preservation, external-change conflicts, Desktop copy synchronization and removal, exact GNOME trust metadata, deletion safety, and static sandbox diagnosis.

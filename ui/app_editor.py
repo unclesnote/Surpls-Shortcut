@@ -306,18 +306,22 @@ class AppEditorDialog(tk.Toplevel):
             )
             return
         result = diagnose_sandbox(path, self.app.entries)
-        body = result.summary + "\n\n" + "\n".join(
-            f"• {item}" for item in result.details
-        )
+        details = "\n".join(f"• {item}" for item in result.details)
         if result.existing_no_sandbox and not self.no_sandbox_var.get():
             if messagebox.askyesno(
                 self.tr("diagnostic_title"),
-                body + self.tr("diagnostic_import"),
+                result.summary + self.tr("diagnostic_import"),
+                detail=details,
                 parent=self,
             ):
                 self.no_sandbox_var.set(True)
         else:
-            messagebox.showinfo(self.tr("diagnostic_title"), body, parent=self)
+            messagebox.showinfo(
+                self.tr("diagnostic_title"),
+                result.summary,
+                detail=details,
+                parent=self,
+            )
 
     def _validate(self) -> bool:
         if not self.name_var.get().strip():
