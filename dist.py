@@ -46,7 +46,7 @@ def ensure_build_python() -> Path:
     python = BUILD_VENV / "bin" / "python"
     if not python.exists():
         shutil.rmtree(BUILD_VENV, ignore_errors=True)
-        # System site packages keep Pillow and Tkinter visible so they get bundled.
+        # System site packages keep Tkinter visible so it gets bundled.
         command = (sys.executable, "-m", "venv", "--system-site-packages", BUILD_VENV)
         try:
             run(*command, stderr=subprocess.DEVNULL)
@@ -56,7 +56,10 @@ def ensure_build_python() -> Path:
             run(*command, "--without-pip")
             with urllib.request.urlopen(GET_PIP_URL, timeout=60) as response:
                 run(python, "-", "--quiet", input=response.read())
-    run(python, "-m", "pip", "install", "--quiet", "--upgrade", "pyinstaller")
+    run(
+        python, "-m", "pip", "install", "--quiet", "--upgrade",
+        "pyinstaller", "-r", ROOT / "requirement.txt",
+    )
     # PyInstaller only bundles Tcl/Tk when the build Python can import tkinter;
     # otherwise the binary builds fine and then fails at launch.
     if run(python, "-c", "import tkinter", check=False, stderr=subprocess.DEVNULL).returncode:

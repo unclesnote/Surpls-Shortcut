@@ -1,3 +1,4 @@
-# SurplsShortcut uses only the Python standard library.
+# Python dependencies. env.sh installs them into .venv and dist.py bundles them.
 # Tkinter is an operating-system package; on Ubuntu install it with:
 # sudo apt install python3-tk
+Pillow>=10.0

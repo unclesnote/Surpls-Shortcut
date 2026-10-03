@@ -30,12 +30,19 @@ if [[ -f "$surpls_requirements" ]]; then
 fi
 
 if [[ "$surpls_has_requirements" == true && ! -x "$surpls_venv/bin/python" ]]; then
-    if ! "$surpls_system_python" -m venv "$surpls_venv"; then
-        echo "Could not create .venv. Install it with: sudo apt install python3-venv" >&2
-        if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-            exit 1
+    if ! "$surpls_system_python" -m venv "$surpls_venv" 2>/dev/null; then
+        # python3-venv (ensurepip) is missing: create the venv bare and fetch pip.
+        rm -rf "$surpls_venv"
+        if ! "$surpls_system_python" -m venv --without-pip "$surpls_venv" \
+            || ! curl -fsSL https://bootstrap.pypa.io/get-pip.py \
+                | "$surpls_venv/bin/python" - --quiet; then
+            rm -rf "$surpls_venv"
+            echo "Could not create .venv. Install it with: sudo apt install python3-venv" >&2
+            if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+                exit 1
+            fi
+            return 1
         fi
-        return 1
     fi
 fi
 

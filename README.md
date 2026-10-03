@@ -15,7 +15,7 @@ The original interactive Bash implementation and its documentation are preserved
 - `Terminal=true` support for launching CLI applications in a terminal
 - Nearby image discovery up to three directory levels deep
 - Thumbnail selection from 82 common GNOME system icons
-- Custom PNG, SVG, ICO, XPM, JPG, and JPEG icon paths; non-PNG files are converted to `icon_cache/<name>_<crc32>.png` beside the executable (Pillow required; SVG needs `rsvg-convert`) and previews only show PNG
+- Custom PNG, SVG, ICO, XPM, JPG, and JPEG icon paths; non-PNG files are converted to `icon_cache/<name>_<crc32>.png` beside the executable (SVG needs `rsvg-convert`) and previews only show PNG
 - Icon previews in the main list, details panel, editor, and icon picker
 - Localized, descriptive status labels instead of raw Boolean values
 - Desktop shortcut creation, synchronization, and removal
@@ -24,6 +24,7 @@ The original interactive Bash implementation and its documentation are preserved
 - Preservation of unsupported fields and action sections in external `.desktop` files
 - Detection of files modified externally while an edit dialog is open
 - English and Korean user interfaces
+- Current version shown in the window title
 
 ## Screenshots
 
@@ -72,12 +73,15 @@ indicators without launching or modifying the selected application.
 
 ## Requirements
 
+A prebuilt executable in [`dist/`](dist/) needs none of the Python items below; see [Prebuilt executable](#prebuilt-executable). To run from source:
+
 - Linux with GNOME or a compatible desktop environment
 - Python 3.10 or later
 - Tkinter
 - `xdg-user-dir` for resolving the configured Desktop directory
 - `gio` for GNOME Allow Launching trust metadata
 - `update-desktop-database` for refreshing the application database
+- Optional: `rsvg-convert` (`librsvg2-bin`) to preview SVG icons
 
 On Ubuntu or Debian, install the runtime packages with:
 
@@ -86,15 +90,25 @@ sudo apt update
 sudo apt install python3 python3-pip python3-venv python3-tk xdg-user-dirs libglib2.0-bin desktop-file-utils
 ```
 
-There are currently no third-party pip dependencies. `env.sh` monitors
-`requirement.txt`; when dependencies are added, it creates `.venv` and installs
-the file again only after its contents change.
+Python packages are declared in [`requirement.txt`](requirement.txt). `env.sh` creates `.venv` and installs them again only after the file's contents change.
 
 ```bash
 source ./env.sh
 ```
 
 ## Running the application
+
+### Prebuilt executable
+
+Each release is published as a single-file Linux executable under [`dist/`](dist/); see [Versioning and distribution](#versioning-and-distribution). It bundles the Python runtime and all libraries, so no Python installation is needed:
+
+```bash
+./dist/<version>_<date>/SurplsShortcut
+```
+
+The system tools listed under Requirements (`xdg-user-dir`, `gio`, `update-desktop-database`) are still used when present. The executable links against the system C library, so run it on the same or a newer Linux distribution than the one that built it.
+
+### From source
 
 From the project directory:
 
@@ -181,6 +195,11 @@ SurplsShortcut/
 │   └── launch.json                     # F5 debugger configuration
 ├── app.py                              # GUI entry point
 ├── env.sh                              # Shell and VS Code Python environment
+├── version.py                          # Reads manifest.json (version, release notes)
+├── manifest.json                       # Release history: version, date, notes
+├── dist.py                             # Builds the executable and publishes a release
+├── dist/
+│   └── <version>_<date>/               # Built executable and release.md per release
 ├── models.py                           # DesktopEntry data model
 ├── config.py                           # Paths, settings, and categories
 ├── i18n.py                             # English and Korean strings
@@ -202,7 +221,8 @@ SurplsShortcut/
 │   ├── test_desktop_entry.py
 │   ├── test_exec_builder.py
 │   ├── test_desktop_sync.py
-│   └── test_sandbox.py
+│   ├── test_sandbox.py
+│   └── test_version.py
 ├── archive/                            # Legacy Bash implementation and docs
 ├── Design.md                           # GUI and workflow design
 └── requirement.txt                     # Python dependency declaration
@@ -216,13 +236,40 @@ Run the complete test suite with:
 ./env.sh -m unittest discover -v
 ```
 
-The tests cover `Exec` parsing and construction, `--no-sandbox` separation, unknown desktop-entry field preservation, external-change conflicts, Desktop copy synchronization and removal, exact GNOME trust metadata, deletion safety, and static sandbox diagnosis.
+The tests cover release-manifest parsing and release-note rendering, `Exec` parsing and construction, `--no-sandbox` separation, unknown desktop-entry field preservation, external-change conflicts, Desktop copy synchronization and removal, exact GNOME trust metadata, deletion safety, and static sandbox diagnosis.
 
 ## Versioning and distribution
 
-`manifest.json` lists releases as `{ "version", "date", "note": [...] }`. The newest entry (by date, then version) is shown in the window title as `SurplsShortcut (v1.0.0)`.
+### `manifest.json`
 
-`./env.sh dist.py` builds a single-file Linux executable that needs no Python on the target machine into `dist/<version>_<date>/`, together with a `release.md` that lists every entry of `manifest.json`.
+The release history is a JSON array of `{ "version", "date", "note": [...] }` entries, where `note` is a list of user-facing change descriptions. The newest entry (by date, then version) provides the version shown in the window title. Keep `date` in one format across entries so the ordering stays correct.
+
+### `dist/`
+
+[`dist/`](dist/) holds the built, ready-to-run releases, one folder per release named `<version>_<date>`:
+
+```text
+dist/
+└── <version>_<date>/
+    ├── SurplsShortcut    # single-file Linux executable, no Python required
+    └── release.md        # every manifest.json entry as Markdown release notes
+```
+
+Older releases stay in their own folders, so a previous version can still be downloaded and run.
+
+### Building a release
+
+1. Add a new entry to `manifest.json` with the new version, date, and notes.
+2. Run the build script:
+
+   ```bash
+   ./env.sh dist.py
+   ```
+
+   It builds the executable with PyInstaller into `dist/<version>_<date>/` and writes `release.md` next to it. The build fails early if Tkinter is not available, because the executable would otherwise start and immediately report that Tkinter is missing.
+3. In a terminal, the script then offers to commit and push the working tree with the release notes as the commit message, and afterwards to create and push a `v<version>` Git tag. Answer `n` to either prompt to skip it.
+
+PyInstaller does not cross-compile, so the executable is built for the platform it runs on (Linux).
 
 ## Legacy Bash version
 
