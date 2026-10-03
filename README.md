@@ -218,6 +218,12 @@ Run the complete test suite with:
 
 The tests cover `Exec` parsing and construction, `--no-sandbox` separation, unknown desktop-entry field preservation, external-change conflicts, Desktop copy synchronization and removal, exact GNOME trust metadata, deletion safety, and static sandbox diagnosis.
 
+## Versioning and distribution
+
+`manifest.json` lists releases as `{ "version", "date", "note": [...] }`. The newest entry (by date, then version) is shown in the window title as `SurplsShortcut (v1.0.0)`.
+
+`./env.sh dist.py` builds a single-file Linux executable that needs no Python on the target machine into `dist/<version>_<date>/`, together with a `release.md` that lists every entry of `manifest.json`.
+
 ## Legacy Bash version
 
 The previous terminal-based implementation remains available at:

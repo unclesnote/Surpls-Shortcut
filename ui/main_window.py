@@ -9,6 +9,7 @@ from i18n import Translator
 from models import DesktopEntry
 from services.desktop_entry_service import DesktopEntryError
 from services.gnome_service import GnomeShortcutService
+from version import latest_release
 
 from .app_editor import AppEditorDialog
 from .delete_dialog import confirm_delete
@@ -30,7 +31,7 @@ class ShortcutManagerApp(tk.Tk):
         self.language_var = tk.StringVar(
             value="한국어" if config.language == "ko" else "English"
         )
-        self.title(self.tr("app_title"))
+        self.title(self._window_title())
         self.geometry("1000x680")
         self.minsize(820, 560)
         self._build_ui()
@@ -160,8 +161,13 @@ class ShortcutManagerApp(tk.Tk):
         self.folder_button.pack(side="right")
         self._apply_texts()
 
+    def _window_title(self) -> str:
+        release = latest_release()
+        title = self.tr("app_title")
+        return f"{title} ({release.label})" if release else title
+
     def _apply_texts(self) -> None:
-        self.title(self.tr("app_title"))
+        self.title(self._window_title())
         self.new_button.configure(text=self.tr("new"))
         self.edit_button.configure(text=self.tr("edit"))
         self.delete_button.configure(text=self.tr("delete"))
