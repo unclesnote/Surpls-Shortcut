@@ -2,7 +2,7 @@
 
 ## 1. 문서 목적
 
-`gnome_shortcut_manager.sh`의 기능을 Python `tkinter`/`ttk` 기반 데스크톱 앱으로 옮기기 위한 화면 구성, 사용자 흐름, 상태 관리 및 내부 구조를 정의한다.
+사용자별 GNOME `.desktop` 바로가기를 관리하는 Python `tkinter`/`ttk` 데스크톱 앱의 화면 구성, 사용자 흐름, 상태 관리 및 내부 구조를 정의한다.
 
 GUI 버전의 핵심 목표는 다음과 같다.
 
@@ -264,7 +264,7 @@ GUI 버전의 핵심 목표는 다음과 같다.
 
 ### 시스템 아이콘
 
-- Bash 버전의 `SYSTEM_ICONS` 목록과 한·영 설명을 그대로 데이터화한다.
+- `resources/system_icons.py`의 시스템 아이콘 목록과 한·영 설명을 데이터로 사용한다.
 - 이름/설명 검색을 지원한다.
 - 현재 테마에서 미리보기를 찾지 못해도 아이콘 이름 자체는 선택 가능하다.
 
@@ -272,8 +272,9 @@ GUI 버전의 핵심 목표는 다음과 같다.
 
 - `filedialog.askopenfilename()`으로 지원 확장자를 제한한다.
 - 선택한 경로를 절대 경로로 저장한다.
-- Tkinter에서 직접 표시하기 어려운 SVG/XPM 등의 미리보기는 대체 아이콘과 파일명을 표시한다.
-- 이미지 미리보기 확장이 필요하면 Pillow와 CairoSVG를 선택 의존성으로 둔다.
+- 미리보기는 PNG만 표시한다. PNG가 아닌 파일(JPG, ICO, XPM, SVG)은 실행 파일이 있는 폴더의 `icon_cache/`에 `<원본이름>_<crc32>.png`로 변환(최대 256px)한 뒤 그 PNG를 미리보기와 `Icon=` 값으로 사용한다.
+- 변환은 Pillow로 하고, SVG는 `rsvg-convert`가 있을 때만 변환한다. 변환할 수 없는 파일은 미리보기를 표시하지 않으며 선택 확정을 비활성화한다.
+- 주변 검색은 `icon_cache/` 폴더를 제외하고, 변환할 수 없는 파일은 목록에 표시하지 않는다.
 
 ## 7. 저장 흐름
 
@@ -298,7 +299,7 @@ flowchart TD
 
 ### 저장 결과
 
-기본 `.desktop` 파일 형식은 Bash 버전과 동일하게 유지한다.
+기본 `.desktop` 파일 형식은 다음과 같다.
 
 ```ini
 [Desktop Entry]
@@ -413,12 +414,17 @@ class DesktopEntry:
 ```text
 SurplsShortcut/
 ├── app.py                         # 진입점, Tk 루트와 전역 예외 처리
+├── version.py                     # manifest.json 읽기, 릴리스 노트/커밋 메시지 생성
+├── manifest.json                  # 릴리스 이력: version, date, note
+├── dist.py                        # 실행 파일 빌드와 릴리스 게시
+├── dist/                          # <version>_<date>/ 별 실행 파일과 release.md
 ├── models.py                      # DesktopEntry 데이터 모델
 ├── config.py                      # 경로, 사용자 설정, 카테고리
 ├── i18n.py                        # 한국어/영어 문자열
 ├── services/
 │   ├── desktop_entry_service.py   # 파싱, Exec 처리, 저장, 삭제
-│   ├── icon_service.py            # 주변/시스템 아이콘 검색
+│   ├── icon_service.py            # 주변/시스템 아이콘 검색, PNG 변환 캐시
+│   ├── sandbox_service.py         # 읽기 전용 샌드박스 진단
 │   └── gnome_service.py           # 권한, trusted, 캐시 갱신
 ├── ui/
 │   ├── main_window.py             # 목록, 검색, 상세 패널
@@ -430,7 +436,9 @@ SurplsShortcut/
 └── tests/
     ├── test_desktop_entry.py
     ├── test_exec_builder.py
-    └── test_desktop_sync.py
+    ├── test_desktop_sync.py
+    ├── test_sandbox.py
+    └── test_version.py
 ```
 
 ### 계층 책임
@@ -503,3 +511,11 @@ SurplsShortcut/
 - 외부에서 만든 `.desktop` 파일을 저장해도 알려지지 않은 기존 필드가 유실되지 않는다.
 - 한국어와 영어에서 주요 화면과 오류 메시지가 잘리지 않는다.
 - 경로에 공백이 포함된 실행 파일과 아이콘을 정상 처리한다.
+
+## 17. 버전 관리와 배포
+
+- `manifest.json`은 `{ "version", "date", "note": [...] }` 항목의 배열이며, 날짜 다음 버전 순으로 가장 최신 항목이 창 제목의 `(vX.Y.Z)` 표시와 배포 폴더 이름을 결정한다.
+- `dist.py`는 PyInstaller로 Python 없이 실행되는 단일 실행 파일을 `dist/<version>_<date>/`에 만들고, `manifest.json` 전체를 Markdown으로 옮긴 `release.md`를 함께 둔다.
+- 빌드 Python에서 `tkinter`를 가져올 수 없으면 Tcl/Tk가 누락된 실행 파일이 만들어지므로 빌드를 중단한다.
+- 빌드 후 최신 릴리스 노트를 커밋 메시지로 삼아 커밋·푸시하고, 이어서 `v<version>` Git 태그 생성 여부를 묻는다.
+- PyInstaller는 크로스 컴파일을 지원하지 않으므로 실행 파일은 빌드한 플랫폼(Linux)용이다.

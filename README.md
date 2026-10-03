@@ -2,7 +2,7 @@
 
 SurplsShortcut is a Python/Tkinter desktop application for creating and managing per-user GNOME `.desktop` shortcuts. It provides a graphical interface for application-menu entries and optional Desktop copies without requiring users to edit launcher files manually.
 
-The original interactive Bash implementation and its documentation are preserved in [`archive/`](archive/).
+Ready-to-run Linux executables, each bundling its own Python runtime and libraries, are published in the [`dist/`](dist/) folder; see [Prebuilt executable](#prebuilt-executable).
 
 ## Features
 
@@ -223,7 +223,6 @@ SurplsShortcut/
 │   ├── test_desktop_sync.py
 │   ├── test_sandbox.py
 │   └── test_version.py
-├── archive/                            # Legacy Bash implementation and docs
 ├── Design.md                           # GUI and workflow design
 └── requirement.txt                     # Python dependency declaration
 ```
@@ -270,16 +269,6 @@ Older releases stay in their own folders, so a previous version can still be dow
 3. In a terminal, the script then offers to commit and push the working tree with the release notes as the commit message, and afterwards to create and push a `v<version>` Git tag. Answer `n` to either prompt to skip it.
 
 PyInstaller does not cross-compile, so the executable is built for the platform it runs on (Linux).
-
-## Legacy Bash version
-
-The previous terminal-based implementation remains available at:
-
-```text
-archive/gnome_shortcut_manager.sh
-```
-
-Its original English and Korean documentation is stored beside it. New development should target the role-based Python modules listed above.
 
 ## Design
 
