@@ -11,9 +11,11 @@ from typing import Callable
 from i18n import Translator
 from services.icon_service import (
     ICON_EXTENSIONS,
+    ensure_png_icon,
     find_nearby_icons,
+    icon_cache_dir,
     list_system_icons,
-    resolve_system_icon,
+    resolve_preview_png,
 )
 
 
@@ -21,24 +23,12 @@ def load_icon_preview(
     master: tk.Misc,
     icon: str,
     size: int = 64,
+    cache_dir: Path | None = None,
 ) -> tk.PhotoImage | None:
-    """Load a file or theme icon as a Tk image, with a stdlib fallback."""
-    path = Path(icon).expanduser()
-    if not path.is_file():
-        resolved = resolve_system_icon(icon)
-        if resolved is None:
-            return None
-        path = resolved
-
-    try:
-        from PIL import Image, ImageTk
-
-        with Image.open(path) as source:
-            image = source.convert("RGBA")
-            image.thumbnail((size, size))
-            return ImageTk.PhotoImage(image, master=master)
-    except (ImportError, OSError, ValueError):
-        pass
+    """Load a PNG icon as a Tk image; other formats are converted into cache_dir."""
+    path = resolve_preview_png(icon, cache_dir)
+    if path is None:
+        return None
 
     try:
         image = tk.PhotoImage(master=master, file=str(path))
@@ -62,10 +52,12 @@ class _ScrollableIconGrid(ttk.Frame):
         self,
         parent: tk.Misc,
         on_select: Callable[[str], None],
+        cache_dir: Path | None = None,
         columns: int = 4,
     ) -> None:
         super().__init__(parent)
         self.on_select = on_select
+        self.cache_dir = cache_dir
         self.columns = columns
         self.images: list[tk.PhotoImage] = []
 
@@ -99,7 +91,7 @@ class _ScrollableIconGrid(ttk.Frame):
             self.content.columnconfigure(column, weight=1, uniform="icon")
 
         for index, (value, label) in enumerate(items):
-            image = load_icon_preview(self, value, 56)
+            image = load_icon_preview(self, value, 56, self.cache_dir)
             if image is not None:
                 self.images.append(image)
             button = ttk.Button(
@@ -131,6 +123,7 @@ class IconPickerDialog(tk.Toplevel):
         super().__init__(parent)
         self.tr = tr
         self.executable = executable
+        self.cache_dir = icon_cache_dir(executable)
         self.result: str | None = None
         self.nearby_results: list[Path] = []
         self.preview_image: tk.PhotoImage | None = None
@@ -177,6 +170,7 @@ class IconPickerDialog(tk.Toplevel):
         self.nearby_grid = _ScrollableIconGrid(
             self.nearby_frame,
             self._select_icon,
+            self.cache_dir,
         )
         self.nearby_grid.pack(fill="both", expand=True)
 
@@ -191,6 +185,7 @@ class IconPickerDialog(tk.Toplevel):
         self.system_grid = _ScrollableIconGrid(
             self.system_frame,
             self._select_icon,
+            self.cache_dir,
         )
         self.system_grid.pack(fill="both", expand=True)
         self.system_search.trace_add("write", lambda *_: self._fill_system_icons())
@@ -244,7 +239,10 @@ class IconPickerDialog(tk.Toplevel):
         self.use_button.pack(side="right", padx=(0, 8))
 
     def _search_nearby(self) -> None:
-        self._icon_results.put(find_nearby_icons(self.executable))
+        icons = find_nearby_icons(self.executable)
+        self._icon_results.put(
+            [icon for icon in icons if ensure_png_icon(icon, self.cache_dir)]
+        )
 
     def _poll_nearby(self) -> None:
         try:
@@ -290,13 +288,19 @@ class IconPickerDialog(tk.Toplevel):
             self._select_icon(value)
 
     def _select_icon(self, value: str) -> None:
+        path = Path(value).expanduser()
+        if path.is_file():
+            png = ensure_png_icon(path, self.cache_dir)
+            value = str(png) if png is not None else value
         self.selected_var.set(value)
-        self.preview_image = load_icon_preview(self, value, 72)
+        self.preview_image = load_icon_preview(self, value, 72, self.cache_dir)
         if self.preview_image is None:
             self.preview_label.configure(image="", text=self.tr("no_preview"))
         else:
             self.preview_label.configure(image=self.preview_image, text="")
-        self.use_button.configure(state="normal")
+        self.use_button.configure(
+            state="normal" if self.preview_image is not None or not path.is_file() else "disabled"
+        )
 
     def _accept(self) -> None:
         value = self.selected_var.get()

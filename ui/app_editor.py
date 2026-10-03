@@ -19,6 +19,7 @@ from services.desktop_entry_service import (
     make_file_id,
 )
 from services.gnome_service import SaveResult
+from services.icon_service import icon_cache_dir
 from services.sandbox_service import diagnose_sandbox
 
 from .icon_picker import IconPickerDialog, load_icon_preview
@@ -257,11 +258,16 @@ class AppEditorDialog(tk.Toplevel):
             text=self.tr("sandbox_warning") if self.no_sandbox_var.get() else ""
         )
 
+    def _executable_path(self) -> Path | None:
+        value = self.path_var.get().strip()
+        return Path(value).expanduser() if value else None
+
     def _update_icon_preview(self) -> None:
         self.icon_preview_image = load_icon_preview(
             self,
             self.icon_var.get().strip(),
             64,
+            icon_cache_dir(self._executable_path()),
         )
         if self.icon_preview_image is None:
             self.icon_preview.configure(image="", text=self.tr("no_preview"))

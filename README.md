@@ -15,7 +15,7 @@ The original interactive Bash implementation and its documentation are preserved
 - `Terminal=true` support for launching CLI applications in a terminal
 - Nearby image discovery up to three directory levels deep
 - Thumbnail selection from 82 common GNOME system icons
-- Custom PNG, SVG, ICO, XPM, JPG, and JPEG icon paths
+- Custom PNG, SVG, ICO, XPM, JPG, and JPEG icon paths; non-PNG files are converted to `icon_cache/<name>_<crc32>.png` beside the executable (Pillow required; SVG needs `rsvg-convert`) and previews only show PNG
 - Icon previews in the main list, details panel, editor, and icon picker
 - Localized, descriptive status labels instead of raw Boolean values
 - Desktop shortcut creation, synchronization, and removal
